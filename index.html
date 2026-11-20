@@ -220,12 +220,13 @@ td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .krug .num.on-dark{fill:#ffffff}
 .krug .lab{font:400 13px var(--f-disp);fill:var(--ink)}
 .rooms td{font-size:.86rem}
-.rooms .kc{white-space:nowrap}
+.rooms .kc{white-space:nowrap;padding-right:14px}
 .rooms .kc .kmini{width:30px;height:30px;vertical-align:-9px;margin-right:6px;mix-blend-mode:multiply}
-.keyrow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:4px 0 6px}
+.keyrow{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;margin:4px 0 6px;container-type:inline-size}
 .kcard{display:flex;flex-direction:column;align-items:center;gap:2px;padding:6px 4px 10px;border:1px solid transparent;border-radius:6px;background:transparent;cursor:pointer;font:inherit;color:var(--ink);transition:background .25s,border-color .25s,transform .25s}
 .kcard img{width:100%;max-width:130px;aspect-ratio:1;object-fit:contain;mix-blend-mode:multiply;transition:transform .5s cubic-bezier(.3,1.4,.5,1)}
-.kcard b{font:400 .98rem/1.15 var(--f-disp)}
+.kcard{min-width:0}
+.kcard b{font:400 .98rem/1.15 var(--f-disp);font-size:min(.98rem,2cqi);white-space:nowrap}
 .kcard small{font-size:.74rem;color:var(--muted);line-height:1.2;text-align:center}
 .kcard:hover,.kcard:focus-visible{background:var(--paper);border-color:var(--line);outline:none}
 .kcard:hover img{transform:rotate(-8deg) scale(1.06)}
@@ -233,7 +234,7 @@ td.n{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
 .kcard.lit img{transform:rotate(12deg) scale(1.08)}
 .keyrow-n{margin:0 0 14px;font-size:.84rem;color:var(--muted)}
 .chip .kchip{width:22px;height:22px;margin:-4px 2px -4px -4px;vertical-align:middle;mix-blend-mode:multiply}
-@media (max-width:760px){.keyrow{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:6px;padding-bottom:6px;margin-inline:-4px}.kcard{flex:0 0 30%;scroll-snap-align:start}}
+@media (max-width:760px){.keyrow{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:6px;padding-bottom:6px;margin-inline:-4px}.kcard b{font-size:.92rem}.kcard{flex:0 0 30%;scroll-snap-align:start}}
 .rooms .mean{font-style:italic;color:var(--ink-2)}
 
 /* календарь */
@@ -719,7 +720,7 @@ html.cover-on{overflow:hidden}
   if(location.hash.length>1) return;
   var reduce=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
   var ring=document.getElementById('cvRing'), seal=document.getElementById('cvSeal'), hint=document.getElementById('cvHint'),
-      sheet=document.getElementById('cvSheet'), stage=document.getElementById('cvStage'), enter=document.getElementById('cvEnter');
+      sheet=document.getElementById('cvSheet'), stage=document.getElementById('cvStage'), enter=document.getElementById('cvEnter'), open=document.getElementById('cvOpen');
   var done=false, drag=null, moved=false, closed=false;
   cover.hidden=false; document.documentElement.classList.add('cover-on');
   function target(){ var r=seal.getBoundingClientRect(); return {x:r.left+r.width/2, y:r.top+r.height/2, R:Math.max(r.width*0.75,40)}; }
@@ -743,10 +744,20 @@ html.cover-on{overflow:hidden}
     setTimeout(function(){ cover.classList.add('broken'); }, T[1]);
     setTimeout(unroll, T[2]);
     setTimeout(function(){ cover.classList.add('read'); try{ enter.focus({preventScroll:true}); }catch(_){} }, T[3]); }
-  function unroll(){ var w=stage.getBoundingClientRect().width*1.04, roll=w*131/491;
-    var hgt=Math.max(220,Math.min(w*1.0, window.innerHeight-2*roll-70));
-    stage.style.marginTop='0'; cover.classList.add('unroll');
+  // Высота листа: не меньше, чем нужно надписи с кнопкой (иначе на невысоком экране кнопка уходит
+  // под нижний валик), а если весь развёрнутый свиток выше окна — он целиком уменьшается.
+  function textNeed(){ var t=sheet.firstElementChild, cs=getComputedStyle(t), n=0, h=0;
+    for(var i=0;i<t.children.length;i++){ var el=t.children[i], c=getComputedStyle(el);
+      h+=el.getBoundingClientRect().height+parseFloat(c.marginTop)+parseFloat(c.marginBottom); n++; }
+    return h+(n-1)*(parseFloat(cs.rowGap)||8)+parseFloat(cs.paddingTop)+parseFloat(cs.paddingBottom); }
+  function fitScroll(){ var w=stage.getBoundingClientRect().width*1.04, roll=w*131/491;
+    var hgt=Math.max(220,textNeed()+12,Math.min(w*1.0, window.innerHeight-2*roll-70));
+    var total=2*w*227/900-0.09*w+hgt, room=window.innerHeight-24;
+    open.style.transform=total>room?'translate(-50%,-50%) scale('+(room/total).toFixed(3)+')':'';
+    return hgt; }
+  function unroll(){ stage.style.marginTop='0'; cover.classList.add('unroll'); var hgt=fitScroll();
     requestAnimationFrame(function(){ requestAnimationFrame(function(){ sheet.style.setProperty('--h',hgt+'px'); }); }); }
+  window.addEventListener('resize',function(){ if(!closed&&cover.classList.contains('unroll')) sheet.style.setProperty('--h',fitScroll()+'px'); });
   function openCover(){ if(closed) return; closed=true; done=true; cover.classList.add('gone'); document.documentElement.classList.remove('cover-on');
     setTimeout(function(){ cover.hidden=true; }, reduce?200:950); }
   enter.addEventListener('click',openCover);
